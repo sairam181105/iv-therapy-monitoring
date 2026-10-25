@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Patient IV Monitor</title>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #020617, #0f172a);
+      color: white;
+      text-align: center;
+    }
+
+    .container {
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+    }
+
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 16px;
+      margin: 10px 0;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    }
+
+    .full {
+      width: 100%;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .value {
+      font-size: 32px;
+      font-weight: bold;
+      margin-top: 10px;
+      color: #38bdf8;
+    }
+
+    .status {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .normal { color: #22c55e; }
+    .warning { color: #facc15; }
+    .alert {
+      color: #ef4444;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0.5; }
+    }
+
+    select {
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: #1e293b;
+      color: white;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h2>💉 Patient IV Monitor</h2>
+
+  <!-- SELECT -->
+  <div class="card">
+    <h3>Select Patient</h3>
+    <select id="patientSelect"></select>
+  </div>
+
+  <!-- FULL WIDTH PATIENT INFO -->
+  <div class="card full">
+    <h3 id="patientInfo">No Patient Selected</h3>
+  </div>
+
+  <!-- GRID -->
+  <div class="grid">
+
+    <div class="card">
+      <h3>Remaining Fluid</h3>
+      <div id="ml" class="value">0 mL</div>
+    </div>
+
+    <div class="card">
+      <h3>Percentage</h3>
+      <div id="percent" class="value">0%</div>
+    </div>
+
+    <div class="card">
+      <h3>Status</h3>
+      <div id="status" class="status normal">Normal</div>
+    </div>
+
+<div class="card">
+  <h3>Last Update</h3>
+  <div id="lastUpdate" class="value">--</div>
+</div>
+
+  </div>
+
+</div>
+
+<script>
+const socket = io("http://localhost:3000");
+
+let patients = [];
+let selectedId = null;
+
+// ===== RECEIVE DATA =====
+socket.on("patientsData", (data) => {
+  patients = data;
+  updateDropdown();
+  updateUI();
+});
+
+// ===== DROPDOWN =====
+function updateDropdown() {
+  const select = document.getElementById("patientSelect");
+
+  select.innerHTML = "";
+
+  patients.forEach(p => {
+    const option = document.createElement("option");
+    option.value = p.id;
+    option.text = p.name + " (Bed " + p.bed + ")";
+    select.appendChild(option);
+  });
+
+  if (!selectedId && patients.length > 0) {
+    selectedId = patients[0].id;
+  }
+
+  select.value = selectedId;
+}
+
+// ===== SELECT CHANGE =====
+document.getElementById("patientSelect").onchange = function () {
+  selectedId = this.value;
+  updateUI();
+};
+
+// ===== UPDATE UI =====
+function updateUI() {
+  const p = patients.find(x => x.id == selectedId);
+  if (!p || !p.data) return;
+
+  const d = p.data;
+
+  document.getElementById("patientInfo").innerText =
+    p.name + " | Bed " + p.bed;
+
+  document.getElementById("ml").innerText =
+    d.remaining_ml.toFixed(1) + " mL";
+
+  document.getElementById("percent").innerText =
+    d.percent.toFixed(1) + " %";
+  document.getElementById("lastUpdate").innerText =
+    new Date().toLocaleTimeString();
+   updateStatus(d);
+}
+
+// ===== STATUS =====
+function updateStatus(d) {
+  const el = document.getElementById("status");
+
+  if (d.bottleEmpty) {
+    el.innerText = "🚨 Bottle Empty";
+    el.className = "status alert";
+  }
+  else if (d.flowStopped) {
+    el.innerText = "❌ Flow Stopped";
+    el.className = "status alert";
+  }
+  else if (d.less_than_10) {
+    el.innerText = "⚠️ Low Level";
+    el.className = "status warning";
+  }
+  else {
+    el.innerText = "Normal";
+    el.className = "status normal";
+  }
+}
+</script>
+
+</body>
+</html>

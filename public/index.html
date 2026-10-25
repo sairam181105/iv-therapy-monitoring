@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>IV Monitoring System</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #020617, #0f172a);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+
+    .container {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 20px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    }
+
+    h1 {
+      margin-bottom: 20px;
+    }
+
+    p {
+      color: #94a3b8;
+      margin-bottom: 30px;
+    }
+
+    .btn {
+      display: block;
+      width: 250px;
+      padding: 15px;
+      margin: 15px auto;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .nurse {
+      background: linear-gradient(135deg, #00c853, #00e676);
+      color: black;
+    }
+
+    .patient {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: black;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(255,255,255,0.2);
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>💉 IV Monitoring System</h1>
+  <p>Select your interface</p>
+
+  <button class="btn nurse" onclick="goNurse()">
+    👩‍⚕️ Nurse Dashboard
+  </button>
+
+  <button class="btn patient" onclick="goPatient()">
+    🧑 Patient Monitor
+  </button>
+</div>
+
+<script>
+function goNurse() {
+  window.location.href = "/nurse.html";
+}
+
+function goPatient() {
+  window.location.href = "/patient";
+}
+</script>
+
+</body>
+</html>

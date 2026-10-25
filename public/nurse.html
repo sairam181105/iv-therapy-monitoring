@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>IV Dashboard</title>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0f172a, #020617);
+      color: #e2e8f0;
+      text-align: center;
+    }
+
+    .header {
+      background: rgba(15, 23, 42, 0.8);
+      padding: 15px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    button {
+      padding: 8px 14px;
+      margin: 5px;
+      background: linear-gradient(135deg, #00c853, #00e676);
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 10px #00e676;
+    }
+
+    input {
+      padding: 8px;
+      border-radius: 8px;
+      border: none;
+      margin: 5px;
+      background: #1e293b;
+      color: white;
+      outline: none;
+    }
+
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 20px;
+      border-radius: 16px;
+      margin: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      padding: 10px;
+    }
+
+    .value {
+      font-size: 28px;
+      font-weight: bold;
+      margin: 10px 0;
+      color: #38bdf8;
+    }
+
+    .status {
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .normal { color: #22c55e; }
+    .warning { color: #facc15; }
+    .alert {
+      color: #ef4444;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      50% { opacity: 0.5; }
+    }
+
+    canvas {
+      height: 200px !important;
+    }
+
+    #patientsList button {
+      display: block;
+      width: 100%;
+      margin: 5px 0;
+      background: #1e293b;
+      color: white;
+    }
+
+    #patientsList button:hover {
+      background: #334155;
+    }
+
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  <h2>💉 IV Monitoring Dashboard</h2>
+  <p style="color:#94a3b8;">Real-time Patient IV Tracking System</p>
+</div>
+
+<button onclick="initAudio()">🔊 Enable Sound</button>
+
+<div class="card">
+  <h3>Add Patient</h3>
+  <input id="name" placeholder="Patient Name">
+  <input id="bed" placeholder="Bed No">
+  <button onclick="addPatient()">Add</button>
+</div>
+
+<div class="card">
+  <h3>Patients</h3>
+  <div id="patientsList"></div>
+</div>
+
+<div class="card">
+  <h3>Set Capacity</h3>
+  <input id="cap" placeholder="Enter mL (e.g. 500)">
+  <button onclick="setCap()">Send</button>
+</div>
+
+<div class="grid">
+
+<div class="card">
+  <h3>Rate (mL/hr)</h3>
+  <div id="rateVal" class="value">0</div>
+  <canvas id="rateChart"></canvas>
+</div>
+
+<div class="card">
+  <h3>Remaining (mL)</h3>
+  <div id="mlVal" class="value">0</div>
+  <canvas id="mlChart"></canvas>
+</div>
+
+<div class="card">
+  <h3>Percentage (%)</h3>
+  <div id="percentVal" class="value">0</div>
+  <canvas id="percentChart"></canvas>
+</div>
+
+<div class="card">
+  <h3>Status</h3>
+  <div id="status" class="status normal">Normal</div>
+</div>
+
+</div>
+
+<script>
+const socket = io("http://localhost:3000");
+
+let patients = [];
+let selectedId = null;
+
+// ===== SOCKET =====
+socket.on("patientsData", (data) => {
+  patients = data;
+  renderPatients();
+  updateDashboard();
+});
+
+// ===== ADD PATIENT =====
+async function addPatient() {
+  const name = document.getElementById("name").value;
+  const bed = document.getElementById("bed").value;
+
+  const res = await fetch("/add-patient", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ name, bed })
+  });
+
+  const data = await res.json();
+  selectedId = data.id;
+}
+
+// ===== PATIENT LIST =====
+function renderPatients() {
+  const list = document.getElementById("patientsList");
+  list.innerHTML = "";
+
+  patients.forEach(p => {
+    const btn = document.createElement("button");
+    btn.innerText = p.name + " (Bed " + p.bed + ")";
+
+    if (p.id === selectedId) {
+      btn.style.background = "#00c853";
+      btn.style.color = "#000";
+    }
+
+    btn.onclick = () => {
+      selectedId = p.id;
+      renderPatients();
+      updateDashboard();
+    };
+
+    list.appendChild(btn);
+  });
+}
+
+// ===== DASHBOARD =====
+function updateDashboard() {
+  const p = patients.find(x => x.id === selectedId);
+  if (!p || !p.data) return;
+
+  const d = p.data;
+
+  document.getElementById("rateVal").innerText = d.rate.toFixed(1);
+  document.getElementById("mlVal").innerText = d.remaining_ml.toFixed(1);
+  document.getElementById("percentVal").innerText = d.percent.toFixed(1);
+
+  updateChart(rateChart, d.rate);
+  updateChart(mlChart, d.remaining_ml);
+  updateChart(percentChart, d.percent);
+
+  updateStatus(d);
+}
+
+// ===== CHART =====
+function createChart(id) {
+  return new Chart(document.getElementById(id), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [],
+        borderWidth: 2,
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { ticks: { color: "#94a3b8" } }
+      }
+    }
+  });
+}
+
+const rateChart = createChart("rateChart");
+const mlChart = createChart("mlChart");
+const percentChart = createChart("percentChart");
+
+function updateChart(chart, val) {
+  chart.data.labels.push("");
+  chart.data.datasets[0].data.push(val);
+
+  if (chart.data.labels.length > 20) {
+    chart.data.labels.shift();
+    chart.data.datasets[0].data.shift();
+  }
+
+  chart.update();
+}
+
+// ===== STATUS + SOUND =====
+let audioCtx, sound=false;
+
+function initAudio(){
+  audioCtx = new AudioContext();
+  sound=true;
+}
+
+function beep(f=1000){
+  if(!sound) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.frequency.value=f;
+  o.start();
+  setTimeout(()=>o.stop(),200);
+}
+
+function updateStatus(d){
+  const el = document.getElementById("status");
+
+  document.body.style.boxShadow = "";
+
+  if(d.bottleEmpty){
+    el.innerText="🚨 Bottle Empty";
+    el.className="status alert";
+    beep(600);
+    document.body.style.boxShadow = "0 0 40px red inset";
+  }
+  else if(d.flowStopped){
+    el.innerText="❌ Flow Stopped";
+    el.className="status alert";
+    beep(400);
+    document.body.style.boxShadow = "0 0 30px red inset";
+  }
+  else if(d.less_than_10){
+    el.innerText="⚠️ Low Level";
+    el.className="status warning";
+    beep(1200);
+  }
+  else{
+    el.innerText="Normal";
+    el.className="status normal";
+  }
+}
+
+// ===== CAPACITY =====
+async function setCap(){
+  const val = document.getElementById("cap").value;
+
+  await fetch("/set-capacity",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({capacity:val})
+  });
+}
+</script>
+
+</body>
+</html>
