@@ -1,0 +1,6 @@
+# Treat all HTML files as documentation/vendored so they are excluded from language statistics
+*.html linguist-detectable=false
+*.htm linguist-detectable=false
+
+# Optional: If you want your hardware firmware (e.g., .ino or .cpp) to be counted prominently
+*.ino linguist-language=C++
